@@ -1,4 +1,4 @@
-name: Python DevSecOps Enterprise Pipeline
+name: Python DevSecOps Pipeline
 
 on:
   push:
