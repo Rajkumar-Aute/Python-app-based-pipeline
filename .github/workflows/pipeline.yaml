@@ -1,0 +1,101 @@
+name: Python DevSecOps Enterprise Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # JOB 1: Continuous Integration (Test, Lint, and Secure)
+  # Goal: Ensure code quality, run unit tests, and scan for vulnerabilities.
+
+  build-test-and-secure:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        # Install flake8 (Linter) and bandit (Security Scanner)
+        pip install flake8 bandit
+
+    - name: Lint with Flake8
+      # Fails the build if there are severe syntax errors
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    # DEVSECOPS: Code & Dependency Scanning
+    
+    # Step 1.5: SAST (Static Application Security Testing) - Python Native
+    # Bandit analyzes Python code for common security issues (e.g., hardcoded passwords, shell injections).
+    # Since it requires no tokens, we leave this active for immediate feedback!
+    - name: Python SAST (Bandit)
+      run: bandit -r . -f custom
+
+    # Step 1.6: SCA (Software Composition Analysis) - Snyk
+    # Scans requirements.txt for known CVEs. 
+    # Disabled scan due to unavailability of Snyk token
+    # - name: Dependency Check (Snyk)
+    #   uses: snyk/actions/python@master
+    #   env:
+    #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    #   with:
+    #     args: --file=requirements.txt
+
+    # Step 1.7: SAST Enterprise Alternative (SonarCloud)
+    # Disabled scan due to unavailability of Sonar token
+    # - name: Static Analysis (SonarCloud)
+    #   uses: SonarSource/sonarcloud-github-action@master
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # JOB 2: Continuous Delivery (Containerization & OS Scanning)
+  dockerize:
+    needs: build-test-and-secure
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # Step 2.1: Build the Docker Image
+    # Notice we dynamically use your DOCKER_USERNAME secret for the tags!
+    - name: Build Docker Image
+      run: |
+        docker build \
+          -f Dockerfile-GithubActions \
+          -t ${{ secrets.DOCKER_USERNAME }}/python-base-app:${{ github.sha }} \
+          -t ${{ secrets.DOCKER_USERNAME }}/python-base-app:${{ github.run_number }} \
+          .
+
+    # Step 2.2: Scan the Docker Image using Trivy
+    # Scans the Python Alpine base image and installed pip libraries.
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: '${{ secrets.DOCKER_USERNAME }}/python-base-app:${{ github.sha }}'
+        format: 'table'
+        exit-code: '0' # Change to '1' to fail the build if vulnerabilities are found
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'
+
+    # Step 2.3: Authenticate and Push to Docker Hub
+    - name: Login and Push to Docker Hub
+      run: |
+        echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+        
+        docker push ${{ secrets.DOCKER_USERNAME }}/python-base-app:${{ github.sha }}
+        docker push ${{ secrets.DOCKER_USERNAME }}/python-base-app:${{ github.run_number }}

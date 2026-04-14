@@ -1,0 +1,35 @@
+# ==============================================================================
+# Production Dockerfile for Python Flask
+# ==============================================================================
+# Use a minimal Alpine Linux base image for Python 3.11
+FROM python:3.11-alpine
+
+# DevSecOps Best Practice: Create a non-root system user and group
+RUN addgroup -S appuser && adduser -S appuser -G appuser
+
+# Set the working directory
+WORKDIR /app
+
+# Copy only the requirements file first to leverage Docker layer caching
+COPY requirements.txt .
+
+# Install dependencies securely. 
+# --no-cache-dir prevents Pip from storing downloaded packages, reducing image size.
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the actual application code
+COPY app.py .
+
+# Change ownership of the app directory to the non-root user
+RUN chown -R appuser:appuser /app
+
+# Switch to the restricted user
+USER appuser:appuser
+
+# Expose the port Gunicorn will listen on
+EXPOSE 5000
+
+# Command to run the application using Gunicorn (Production Server)
+# -w 2 means use 2 worker processes
+# -b 0.0.0.0:5000 binds it to all network interfaces on port 5000
+CMD ["gunicorn", "-w", "2", "-b", "0.0.0.0:5000", "app:app"]
