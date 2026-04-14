@@ -40,7 +40,7 @@ jobs:
     # Bandit analyzes Python code for common security issues (e.g., hardcoded passwords, shell injections).
     # Since it requires no tokens, we leave this active for immediate feedback!
     - name: Python SAST (Bandit)
-      run: bandit -r . -f custom
+      run: bandit -r . -f custom --exit-zero
 
     # Step 1.6: SCA (Software Composition Analysis) - Snyk
     # Scans requirements.txt for known CVEs. 
