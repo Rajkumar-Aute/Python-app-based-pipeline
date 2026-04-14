@@ -40,7 +40,7 @@ The repository is structured to separate application logic from pipeline deploym
 ### Local Development
 To run this application locally for testing:
 1. Create a virtual environment: `python -m venv venv`
-2. Activate it: `source venv/bin/activate` (Linux/Mac) or `venv\Scripts\activate` (Windows)
+2. Activate it: `source venv/bin/activate` (Linux/Mac) or `source venv/Scripts/activate` (Windows)
 3. Install dependencies: `pip install -r requirements.txt`
 4. Run the app: `python app.py`
 5. Access the app in your browser at: `http://localhost:5000`
